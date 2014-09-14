@@ -1,0 +1,4 @@
+[
+    { "keys": ["f1"], "command": "pair_programming_connect" },
+    { "keys": ["f2"], "command": "pair_programming_disconnect" }
+]
