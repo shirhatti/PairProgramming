@@ -10,10 +10,11 @@ import asyncore
 import socket
 
 debug_flag = True
+enable_send = True
+enable_receive = True
 
 server_subprocesses = []
 sever_portnumber = []
-
 # class SocketConnection(threading.Thread):
 #     def __init__(self,timeout):
 #         self.port_number = 0
@@ -67,12 +68,13 @@ def _available_port():
 
 class ChatClient(asynchat.async_chat):
  
-    def __init__(self, host, port):
+    def __init__(self, host, port, view):
+        self.view = view
         asynchat.async_chat.__init__(self)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connect((host, port))
  
-        self.set_terminator(b'\n')
+        self.set_terminator(b'\0')
         self.buffer = []
  
     def collect_incoming_data(self, data):
@@ -80,17 +82,21 @@ class ChatClient(asynchat.async_chat):
  
     def found_terminator(self):
         msg = b''.join(self.buffer)
-        print ('Received:', msg)
+        print ('Receivved:', msg)
+        self.view.run_command('run_macro_file', {"file": "Packages/PairProgramming/Clear.sublime-macro"})
+        self.view.run_command("insert", {"characters": msg.decode('utf-8')})
+
         self.buffer = []
 
 class ChatClientRunner(threading.Thread):
-    def __init__(self, host, port):
+    def __init__(self, host, port, view):
         self.host = host
         self.port = port
+        self.view = view
         threading.Thread.__init__(self)
 
     def run(self):
-        self.client = ChatClient(self.host, self.port)
+        self.client = ChatClient(self.host, self.port, self.view)
         asyncore.loop()
 
 # def communicate_server(target_process, dummy):
@@ -125,10 +131,34 @@ class ChatClientRunner(threading.Thread):
 
 class PairProgrammingConnectCommand(sublime_plugin.TextCommand):
     def run(self, edit):
-        self.thread = ChatClientRunner('beta.shirhatti.com', 5051)
+        self.thread = ChatClientRunner('beta.shirhatti.com', 5051, self.view)
         self.thread.daemon = True
-        self.thread.start()
         debug("PairProgramming\t\tConnect")
+        self.thread.start()
+        # self.handle_thread(self.thread)
+
+    # def handle_thread(self, thread, offset=0, i=0, dir=1):
+
+    #     next_thread = None
+    #     if thread.is_alive():
+    #         next_thread = thread
+    #     thread = next_thread
+
+    #     if thread:
+    #         # This animates a little activity indicator in the status area
+    #         before = i % 8
+    #         after = (7) - before
+    #         if not after:
+    #             dir = -1
+    #         if not before:
+    #             dir = 1
+    #         i += dir
+    #         self.view.set_status('syncing', 'Syncing [%s=%s]' % \
+    #             (' ' * before, ' ' * after))
+         
+    #         sublime.set_timeout(lambda: self.handle_thread(thread,
+    #             offset, i, dir), 100)
+    #         return
 
 class PairProgrammingDisconnectCommand(sublime_plugin.TextCommand):
     def run(self, edit):
@@ -155,7 +185,7 @@ class ChatClientSend(asynchat.async_chat):
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connect((host, port))
  
-        self.set_terminator(b'\n')
+        self.set_terminator(b'\0')
         self.buffer = []
  
     def collect_incoming_data(self, data):
@@ -174,4 +204,4 @@ class Test(sublime_plugin.EventListener):
 
     def on_modified(self,view):
         source = view.substr(sublime.Region(0, view.size()))
-        #self.client.push(bytearray(source + '\n', 'utf-8'))
+        self.client.push(bytearray(source + '\0', 'utf-8'))
